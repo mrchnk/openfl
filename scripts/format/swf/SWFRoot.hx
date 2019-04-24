@@ -13,6 +13,8 @@ import flash.utils.ByteArray;
 import flash.utils.CompressionAlgorithm;
 import flash.errors.Error;
 import format.swf.tags.TagSymbolClass;
+import format.swf.tags.TagPlaceObject;
+import format.swf.tags.TagDefineSprite;
 
 class SWFRoot extends SWFTimelineContainer
 {
@@ -64,9 +66,59 @@ class SWFRoot extends SWFTimelineContainer
 			}
 		}
 
+		linkSymbols(this);
+
 		#if test_abc
 		if (abcData != null) bindABCWithSymbols();
 		#end
+	}
+
+	private function linkSymbols(timeline:SWFTimelineContainer):Void
+	{
+		for (tag in timeline.tags)
+		{
+			if (Std.is(tag, TagDefineSprite))
+			{
+				linkSymbols(cast(tag, TagDefineSprite));
+			}
+			else if (Std.is(tag, TagPlaceObject))
+			{
+				var placeObject = cast(tag, TagPlaceObject);
+				if (placeObject.hasClassName && !placeObject.hasCharacter)
+				{
+					var className = placeObject.className;
+					if (symbols.exists(className))
+					{
+						placeObject.hasCharacter = true;
+						placeObject.hasClassName = false;
+						placeObject.characterId = symbols.get(className);
+					}
+					else
+					{
+						throw new Error("Undefined symbol " + className);
+					}
+				}
+			}
+		}
+		for (frame in timeline.frames)
+		{
+			for (object in frame.objects)
+			{
+				var className = object.className;
+				if (className != null)
+				{
+					if (symbols.exists(className))
+					{
+						object.className = null;
+						object.characterId = symbols.get(className);
+					}
+					else
+					{
+						throw new Error("Undefined symbol " + className);
+					}
+				}
+			}
+		}
 	}
 
 	#if test_abc
